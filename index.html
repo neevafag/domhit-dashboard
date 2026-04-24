@@ -1,0 +1,1901 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ДомХит — AI Агент Дашборд</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --orange: #E8891A;
+    --orange-dark: #C97010;
+    --orange-light: #FFF3E0;
+    --dark: #1A1A1A;
+    --card-bg: #FFFFFF;
+    --col-bg: #F4F5F7;
+    --border: #E5E7EB;
+  }
+  * { font-family: 'Manrope', sans-serif; box-sizing: border-box; }
+  body { background: #ECEEF1; margin: 0; font-size: 15px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 10px; }
+
+  /* Column scroll */
+  .col-scroll { overflow-y: auto; max-height: calc(100vh - 220px); padding-bottom: 8px; }
+
+  /* Card */
+  .lead-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    position: relative;
+  }
+  .lead-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.09);
+    border-color: #CBD5E0;
+  }
+  .lead-card.urgent { border-left: 3px solid #EF4444; }
+  .lead-card.ready { border-left: 3px solid #22C55E; }
+  .lead-card.ai { border-left: 3px solid var(--orange); }
+
+  /* Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .badge-ai { background: #FFF3E0; color: #C97010; }
+  .badge-urgent { background: #FEF2F2; color: #DC2626; }
+  .badge-ready { background: #F0FDF4; color: #16A34A; }
+  .badge-archive { background: #F3F4F6; color: #6B7280; }
+
+  /* Status dot */
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-green { background: #22C55E; }
+  .dot-orange { background: var(--orange); animation: pulse-orange 2s infinite; }
+  .dot-red { background: #EF4444; animation: pulse-red 2s infinite; }
+  .dot-gray { background: #9CA3AF; }
+
+  @keyframes pulse-orange {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(232,137,26,0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(232,137,26,0); }
+  }
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+  }
+
+  /* Column header */
+  .col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: white;
+    border-radius: 12px 12px 0 0;
+    border-bottom: 2px solid var(--col-bg);
+    margin-bottom: 10px;
+  }
+
+  /* Column */
+  .kanban-col {
+    background: var(--col-bg);
+    border-radius: 12px;
+    padding: 0;
+    min-width: 320px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 380px;
+  }
+  .kanban-col.col-urgent { background: #FEF9F9; }
+  .kanban-col.col-ready { background: #F7FDF9; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1A1A2E;
+    color: white;
+    padding: 14px 18px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 1000;
+    min-width: 300px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 900;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: white;
+    border-radius: 16px;
+    width: 520px;
+    max-width: 95vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 0;
+    animation: modal-in 0.2s ease;
+  }
+  @keyframes modal-in {
+    from { transform: scale(0.95) translateY(10px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  /* Chat bubble */
+  .chat-bubble {
+    padding: 9px 13px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 80%;
+  }
+  .chat-ai { background: #F3F4F6; color: #374151; border-radius: 12px 4px 12px 12px; }
+  .chat-user { background: var(--orange); color: white; border-radius: 4px 12px 12px 12px; }
+
+  /* Input */
+  .msg-input {
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'Manrope', sans-serif;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  .msg-input:focus { border-color: var(--orange); }
+
+  /* Nav */
+  nav a { transition: color 0.15s; }
+  nav a:hover { color: var(--orange) !important; }
+
+  /* Count chip */
+  .count-chip {
+    min-width: 22px;
+    height: 22px;
+    border-radius: 99px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 6px;
+  }
+
+  /* Drag over hint */
+  .kanban-col.drag-over { outline: 2px dashed var(--orange); outline-offset: -4px; }
+
+  /* Stat card */
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 14px 18px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .stat-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  /* Scrollable board */
+  .board-scroll {
+    overflow-x: auto;
+    display: flex;
+    gap: 14px;
+    padding: 0 20px 20px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  /* Typing indicator */
+  .typing span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: #9CA3AF;
+    border-radius: 50%;
+    animation: typing-dot 1.4s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing-dot {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  /* New card flash */
+  @keyframes card-appear {
+    from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .card-new { animation: card-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  .tg-icon { width: 28px; height: 28px; display: block; object-fit: contain; }
+
+  .col-scroll { padding: 0 14px 14px !important; }
+
+  .sevstar-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #662E90 0%, #F1B308 100%);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  /* Type scaling overrides for inline font-sizes */
+  [style*="font-size:9px"], [style*="font-size: 9px"] { font-size: 10px !important; }
+  [style*="font-size:10px"], [style*="font-size: 10px"] { font-size: 11px !important; }
+  [style*="font-size:11px"], [style*="font-size: 11px"] { font-size: 12.5px !important; }
+  [style*="font-size:12px"], [style*="font-size: 12px"] { font-size: 13.5px !important; }
+  [style*="font-size:13px"], [style*="font-size: 13px"] { font-size: 14.5px !important; }
+  [style*="font-size:22px"], [style*="font-size: 22px"] { font-size: 24px !important; }
+
+  .footer {
+    margin-top: 18px;
+    background: #1A1A1A;
+    color: #9CA3AF;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .footer a { color: #E5E7EB; text-decoration: none; font-weight: 600; }
+  .footer a:hover { color: var(--orange); }
+
+  .domhit-chat-launcher {
+    position: fixed;
+    left: 40px;
+    top: 180px;
+    z-index: 1200;
+  }
+
+  .domhit-chat-toggle {
+    width: 94px;
+    height: 94px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    background: radial-gradient(120% 120% at 30% 30%, #FFBF72 0%, var(--orange) 52%, var(--orange-dark) 100%);
+    box-shadow: 0 18px 46px rgba(232,137,26,0.35), 0 10px 22px rgba(0,0,0,0.18);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateZ(0);
+    transition: transform 220ms cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 220ms ease, filter 220ms ease;
+    will-change: transform, box-shadow;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .domhit-chat-toggle::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 999px;
+    background: radial-gradient(circle at 50% 50%, rgba(232,137,26,0.34), rgba(232,137,26,0) 68%);
+    opacity: 0.8;
+    transform: translateZ(0);
+    pointer-events: none;
+    transition: opacity 220ms ease, transform 220ms ease;
+    will-change: opacity, transform;
+  }
+
+  .domhit-chat-toggle:hover { transform: translateZ(0) scale(1.04); box-shadow: 0 22px 58px rgba(232,137,26,0.38), 0 14px 28px rgba(0,0,0,0.2); }
+  .domhit-chat-toggle:active { transform: translateZ(0) scale(0.98); filter: brightness(0.98); }
+  .domhit-chat-toggle:focus-visible { outline: 3px solid rgba(232,137,26,0.45); outline-offset: 4px; }
+
+  .domhit-chat-icon {
+    position: absolute;
+    inset: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 200ms ease, transform 240ms cubic-bezier(0.2, 0.9, 0.2, 1);
+    will-change: opacity, transform;
+  }
+
+  .domhit-chat-icon--robot { opacity: 1; transform: translateZ(0) scale(1); }
+  .domhit-chat-icon--close { opacity: 0; transform: translateZ(0) scale(0.78) rotate(8deg); }
+
+  .domhit-chat-launcher[data-open="true"] .domhit-chat-icon--robot {
+    opacity: 0;
+    transform: translateZ(0) scale(0.78) rotate(-10deg);
+  }
+  .domhit-chat-launcher[data-open="true"] .domhit-chat-icon--close {
+    opacity: 1;
+    transform: translateZ(0) scale(1) rotate(0);
+  }
+
+  .domhit-chat-panel {
+    position: absolute;
+    left: calc(100% + 14px);
+    top: 0;
+    width: 392px;
+    max-width: min(392px, calc(100vw - 28px - 94px - 14px - 28px));
+    transform-origin: 0 20px;
+    transform: translate3d(-10px, 0, 0) scale(0.98);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 220ms ease, visibility 0s linear 260ms;
+    will-change: transform, opacity;
+    contain: content;
+  }
+
+  .domhit-chat-launcher[data-open="true"] .domhit-chat-panel {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 220ms ease, visibility 0s linear 0s;
+  }
+
+  .domhit-chat-widget {
+    --bg: #ECEEF1;
+    --card: #FFFFFF;
+    --border: #E5E7EB;
+    --text-muted: #9CA3AF;
+    --text-body: #374151;
+    --bot-bubble: #FFFFFF;
+    --user-bubble: var(--orange);
+    --radius-lg: 18px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --shadow-lg: 0 18px 60px rgba(0,0,0,0.18);
+  }
+
+  .domhit-chat-widget ::-webkit-scrollbar { width: 4px; height: 4px; }
+  .domhit-chat-widget ::-webkit-scrollbar-track { background: transparent; }
+  .domhit-chat-widget ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 99px; }
+
+  .domhit-chat-widget .chat-card {
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    max-height: min(640px, calc(100vh - 140px));
+    transform: translateZ(0);
+  }
+
+  .domhit-chat-widget .chat-header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: white;
+    border-bottom: 1.5px solid var(--bg);
+    flex-shrink: 0;
+  }
+  .domhit-chat-widget .agent-info { display: flex; align-items: center; gap: 12px; }
+  .domhit-chat-widget .agent-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--orange-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .domhit-chat-widget .agent-avatar svg { width: 22px; height: 22px; }
+  .domhit-chat-widget .agent-avatar::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 11px;
+    height: 11px;
+    background: #22C55E;
+    border-radius: 50%;
+    border: 2px solid white;
+  }
+  .domhit-chat-widget .agent-name { font-size: 14px; font-weight: 800; color: var(--dark); letter-spacing: -0.2px; }
+  .domhit-chat-widget .agent-status {
+    font-size: 11px;
+    color: #22C55E;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 1px;
+  }
+  .domhit-chat-widget .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #22C55E; animation: domhit-widget-pulseGreen 2s infinite; }
+
+  @keyframes domhit-widget-pulseGreen {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(34,197,94,0); }
+  }
+
+  .domhit-chat-widget .header-actions { display: flex; align-items: center; gap: 8px; }
+  .domhit-chat-widget .icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+    background: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+    color: var(--text-muted);
+  }
+  .domhit-chat-widget .icon-btn:hover { background: var(--bg); border-color: #CBD5E0; color: var(--dark); }
+  .domhit-chat-widget .icon-btn:active { transform: scale(0.98); }
+  .domhit-chat-widget .icon-btn:focus-visible { outline: 3px solid rgba(232,137,26,0.35); outline-offset: 3px; }
+  .domhit-chat-widget .icon-btn svg { width: 15px; height: 15px; }
+
+  .domhit-chat-widget .chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 360px;
+    background: var(--bg);
+    scroll-behavior: smooth;
+  }
+
+  .domhit-chat-widget .date-divider { display: flex; align-items: center; gap: 10px; margin: 2px 0 4px; }
+  .domhit-chat-widget .date-divider::before,
+  .domhit-chat-widget .date-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .domhit-chat-widget .date-divider span {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .domhit-chat-widget .msg-row { display: flex; flex-direction: column; gap: 3px; animation: domhit-widget-msgIn 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .domhit-chat-widget .msg-row.bot { align-items: flex-start; }
+  .domhit-chat-widget .msg-row.user { align-items: flex-end; }
+  @keyframes domhit-widget-msgIn {
+    from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.97); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+
+  .domhit-chat-widget .msg-sender {
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+  }
+  .domhit-chat-widget .msg-row.bot .msg-sender { color: var(--orange); }
+  .domhit-chat-widget .msg-row.user .msg-sender { color: var(--text-muted); }
+
+  .domhit-chat-widget .bubble {
+    max-width: 78%;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text-body);
+    position: relative;
+    word-break: break-word;
+  }
+  .domhit-chat-widget .msg-row.bot .bubble {
+    background: var(--bot-bubble);
+    border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .domhit-chat-widget .msg-row.user .bubble {
+    background: var(--user-bubble);
+    color: white;
+    border-radius: var(--radius-md) 4px var(--radius-md) var(--radius-md);
+    box-shadow: 0 2px 10px rgba(232,137,26,0.18);
+  }
+
+  .domhit-chat-widget .msg-time { font-size: 10px; color: var(--text-muted); padding: 0 4px; font-weight: 600; }
+  .domhit-chat-widget .msg-row.user .msg-time { text-align: right; }
+
+  .domhit-chat-widget .typing-row { display: flex; align-items: flex-start; animation: domhit-widget-msgIn 240ms ease both; }
+  .domhit-chat-widget .typing-bubble {
+    background: var(--bot-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md);
+    padding: 12px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .domhit-chat-widget .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); animation: domhit-widget-typingBounce 1.4s infinite ease-in-out; }
+  .domhit-chat-widget .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .domhit-chat-widget .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes domhit-widget-typingBounce {
+    0%, 60%, 100% { transform: translate3d(0, 0, 0); opacity: 0.4; }
+    30% { transform: translate3d(0, -5px, 0); opacity: 1; }
+  }
+
+  .domhit-chat-widget .error-banner {
+    background: #FEF2F2;
+    border: 1px solid #FCA5A5;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #DC2626;
+    font-weight: 600;
+    display: none;
+    margin: 0 16px 10px;
+  }
+  .domhit-chat-widget .error-banner.show { display: block; }
+
+  .domhit-chat-widget .chat-footer {
+    padding: 12px 14px;
+    background: white;
+    border-top: 1.5px solid var(--bg);
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .domhit-chat-widget .input-wrap {
+    flex: 1;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 4px 14px;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+  .domhit-chat-widget .input-wrap:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,137,26,0.18); }
+  .domhit-chat-widget .chat-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    color: var(--dark);
+    outline: none;
+    padding: 8px 0;
+    resize: none;
+    min-height: 38px;
+    max-height: 100px;
+    line-height: 1.5;
+  }
+  .domhit-chat-widget .chat-input::placeholder { color: var(--text-muted); }
+  .domhit-chat-widget .emoji-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--text-muted);
+    transition: background 150ms ease;
+    flex-shrink: 0;
+  }
+  .domhit-chat-widget .emoji-btn:hover { background: var(--border); }
+
+  .domhit-chat-widget .send-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    border: none;
+    background: var(--orange);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+    box-shadow: 0 3px 12px rgba(232,137,26,0.18);
+    transform: translateZ(0);
+    will-change: transform, box-shadow, opacity;
+  }
+  .domhit-chat-widget .send-btn:hover:not(:disabled) { background: var(--orange-dark); transform: translate3d(0, -1px, 0); box-shadow: 0 5px 18px rgba(232,137,26,0.22); }
+  .domhit-chat-widget .send-btn:active:not(:disabled) { transform: translateZ(0) scale(0.96); }
+  .domhit-chat-widget .send-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: translateZ(0); }
+  .domhit-chat-widget .send-btn svg { width: 18px; height: 18px; }
+
+  .domhit-chat-widget .clear-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-lg);
+    background: rgba(0,0,0,0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    pointer-events: none;
+    transition: background 250ms ease;
+  }
+  .domhit-chat-widget .clear-overlay.show { background: rgba(0,0,0,0.35); pointer-events: auto; }
+  .domhit-chat-widget .clear-toast {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    transform: translateZ(0) scale(0.8);
+    transition: opacity 250ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: opacity, transform;
+  }
+  .domhit-chat-widget .clear-overlay.show .clear-toast { opacity: 1; transform: translateZ(0) scale(1); }
+  .domhit-chat-widget .clear-check {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #22C55E;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(34,197,94,0.4);
+  }
+  .domhit-chat-widget .clear-check svg { width: 32px; height: 32px; }
+  .domhit-chat-widget .clear-label {
+    font-size: 14px;
+    font-weight: 800;
+    color: white;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 860px) {
+    .domhit-chat-launcher { left: auto; top: auto; right: 18px; bottom: 18px; }
+    .domhit-chat-toggle { width: 74px; height: 74px; }
+    .domhit-chat-panel {
+      left: auto;
+      right: 0;
+      top: auto;
+      bottom: calc(100% + 12px);
+      width: min(392px, calc(100vw - 24px));
+      max-width: calc(100vw - 24px);
+      transform-origin: 100% 100%;
+      transform: translate3d(0, 10px, 0) scale(0.98);
+    }
+    .domhit-chat-launcher[data-open="true"] .domhit-chat-panel { transform: translate3d(0, 0, 0) scale(1); }
+    .domhit-chat-widget .chat-card { max-height: min(640px, calc(100vh - 120px)); }
+    .domhit-chat-widget .chat-body { min-height: 280px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .domhit-chat-toggle,
+    .domhit-chat-toggle::after,
+    .domhit-chat-icon,
+    .domhit-chat-panel,
+    .domhit-chat-widget * {
+      transition: none !important;
+      animation: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER / NAVBAR -->
+<header style="background: #1A1A1A; padding: 10px 20px; min-height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 16px;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <!-- Logo inline SVG -->
+    <svg viewBox="0 0 94.7 94.2" style="width:30px;height:30px;flex-shrink:0;" xmlns="http://www.w3.org/2000/svg">
+      <path fill-rule="evenodd" clip-rule="evenodd" fill="white" d="M0,27.7v66.4h41.3c25.3,0,46-20.7,46-46V36.5L76.1,47v1.1C76.1,67.3,60.5,83,41.3,83H11.2V33.9l32.6-20.6l18.6,11.8l8.4-7.9L43.8,0L0,27.7z"/>
+      <polygon fill="#E8891A" points="94.7,20.8 86,11.7 44.3,50.8 34.5,40.3 25.3,48.9 43.8,68.6 "/>
+    </svg>
+    <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px;">
+      <!-- Logo text SVG -->
+      <svg viewBox="0 0 257.9 50.4" style="width:90px;height:18px;flex-shrink:0;" xmlns="http://www.w3.org/2000/svg">
+        <path fill="white" fill-rule="evenodd" clip-rule="evenodd" d="M217.1,12.4h8.9v20.4v16.4h-8.9v-1.8c-10.9,6.8-23.9,0.3-23.9-12.2V12.4h8.9v21.9c0,4.1,3.4,7.5,7.5,7.5c4.1,0,7.5-3.4,7.5-7.5V12.4z M16.8,40.4C24.4,29.5,19.3,37,35.7,13v27.4H16.8z M44.4,0h-8.8h-1.8C18.4,22.6,26.5,11,6.1,40.4H0v8.7l0,0h0h10.6h39.6v-8.8h-5.8V0.1V0L44.4,0z M72.3,11.2c2.7,0,5.2,0.5,7.5,1.5c2.3,1,4.4,2.4,6.2,4.2c1.8,1.8,3.2,3.9,4.1,6.3c1,2.4,1.5,4.9,1.5,7.7c0,3.6-0.9,6.9-2.7,9.8c-1.8,3-4.2,5.3-7.2,7.1c-1.5,0.9-3,1.5-4.7,1.9c-1.6,0.4-3.3,0.7-5.1,0.7c-3.5,0-6.8-0.9-9.7-2.6c-3-1.8-5.4-4.2-7.2-7.2c-1.8-3-2.7-6.2-2.7-9.7c0-2.7,0.5-5.3,1.6-7.7c1-2.4,2.4-4.5,4.2-6.2c1.8-1.8,3.9-3.1,6.3-4.2C66.9,11.8,69.6,11.2,72.3,11.2z M71.9,19.9c-0.7,0-1.4,0.1-2,0.2c-0.7,0.2-1.4,0.4-2.1,0.7c-1.4,0.6-2.5,1.4-3.4,2.4c-2,2.1-3.1,4.6-3.1,7.7c0,1.9,0.5,3.7,1.4,5.4c0.9,1.7,2.2,3,3.8,4c1.7,1,3.5,1.5,5.4,1.5c3.1,0,5.7-1,7.7-3.1c2-2.1,3-4.7,3-7.7c0-2-0.5-3.8-1.4-5.5c-0.9-1.7-2.2-3-3.9-4C75.7,20.4,73.9,19.9,71.9,19.9z M144.6,49.2l16.9-24.5L144.6,0h10.6l11.6,16.9L178.5,0h10.6l-17,24.7l17,24.5h-10.6l-11.7-16.7l-11.6,16.7H144.6z M122.3,49.2H115l-9.2-25v25.1H97V12.4h11.8l9.8,26.7l9.8-26.7h11.9v36.8h-8.8V24L122.3,49.2z M239.7,49.2v-29h-9.3v-7.8h27.5v7.8h-9.3v29H239.7z"/>
+      </svg>
+      <div style="width:90px;text-align:center;font-size:9px;font-weight:800;letter-spacing:0.15em;color:#D1D5DB;line-height:1;">СЕВАСТОПОЛЬ</div>
+    </div>
+    <div style="width:1px;height:24px;background:#444;margin:0 8px;"></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="color:#E5E7EB;font-size:12px;font-weight:800;letter-spacing:0.01em;">ИИ CRM Центр недвижимости «ДомХит»</span>
+      <span style="color:#9CA3AF;font-size:12px;font-weight:800;">•</span>
+      <span class="sevstar-pill">Интеллектуальные решения СевСтар</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:flex-end;">
+    <nav style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:flex-end;">
+      <a href="#" style="color:#D1D5DB;font-size:13px;font-weight:500;text-decoration:none;">Аналитика</a>
+      <a href="#" style="color:#D1D5DB;font-size:13px;font-weight:500;text-decoration:none;">Клиенты</a>
+      <a href="#" style="color:#D1D5DB;font-size:13px;font-weight:500;text-decoration:none;">Объекты</a>
+      <button onclick="simulateNewLead()" style="background:var(--orange);color:white;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;transition:background 0.15s;" onmouseover="this.style.background='#C97010'" onmouseout="this.style.background='var(--orange)'">
+        + Симулировать лид
+      </button>
+    </nav>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="user-display-name" style="color:#E5E7EB;font-size:13px;font-weight:700;white-space:nowrap;">Иван Иванов</span>
+      <button onclick="logout()" style="background:#EF4444;color:white;border:none;border-radius:10px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Manrope',sans-serif;transition:filter 0.15s;" onmouseover="this.style.filter='brightness(0.92)'" onmouseout="this.style.filter='none'">
+        Выйти
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- STATS BAR -->
+<div style="padding: 16px 20px 0; display: flex; gap: 12px; overflow-x: auto;">
+  <div class="stat-card" style="flex:1;min-width:160px;">
+    <div class="stat-icon" style="background:#FFF3E0;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" fill="#E8891A"/></svg>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#6B7280;font-weight:500;">В обработке AI</div>
+      <div style="font-size:22px;font-weight:800;color:#1A1A1A;" id="stat-ai">7</div>
+    </div>
+  </div>
+  <div class="stat-card" style="flex:1;min-width:160px;">
+    <div class="stat-icon" style="background:#FEF2F2;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2a5 5 0 100 10A5 5 0 0012 2zm0 12c-5.33 0-8 2.67-8 4v2h16v-2c0-1.33-2.67-4-8-4z" fill="#EF4444"/></svg>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#6B7280;font-weight:500;">Нужен человек</div>
+      <div style="font-size:22px;font-weight:800;color:#1A1A1A;" id="stat-human">3</div>
+    </div>
+  </div>
+  <div class="stat-card" style="flex:1;min-width:160px;">
+    <div class="stat-icon" style="background:#F0FDF4;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4M20 12v7a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#6B7280;font-weight:500;">Готовы к записи</div>
+      <div style="font-size:22px;font-weight:800;color:#1A1A1A;" id="stat-ready">4</div>
+    </div>
+  </div>
+  <div class="stat-card" style="flex:1;min-width:160px;">
+    <div class="stat-icon" style="background:#F3F4F6;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#6B7280;font-weight:500;">Завершено</div>
+      <div style="font-size:22px;font-weight:800;color:#1A1A1A;" id="stat-done">18</div>
+    </div>
+  </div>
+  <div class="stat-card" style="flex:1;min-width:160px;background:linear-gradient(135deg,#1A1A1A 0%,#2D2D2D 100%);border-color:#333;">
+    <div class="stat-icon" style="background:rgba(232,137,26,0.15);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M13 10V3L4 14h7v7l9-11h-7z" fill="#E8891A"/></svg>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#9CA3AF;font-weight:500;">Конверсия сегодня</div>
+      <div style="font-size:22px;font-weight:800;color:white;">36%</div>
+    </div>
+  </div>
+</div>
+
+<!-- BOARD -->
+<div class="board-scroll" style="margin-top:16px;">
+
+  <!-- COL 1: AI обработка -->
+  <div class="kanban-col" id="col-ai">
+    <div class="col-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot dot-orange"></span>
+        <span style="font-size:13px;font-weight:700;color:#1A1A1A;">Лиды в обработке</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" title="AI ведёт переписку"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2zM4 21v-3a7 7 0 0114 0v3" stroke="#E8891A" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <span class="count-chip" style="background:#FFF3E0;color:#C97010;" id="count-ai">7</span>
+    </div>
+    <div class="col-scroll" id="list-ai" style="padding:0 10px 10px;">
+
+      <div class="lead-card ai" onclick="openModal('ai1')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Алексей М.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Авито → WhatsApp</div>
+          </div>
+          <span class="badge badge-ai">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#C97010"/></svg>
+            AI
+          </span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F9FAFB;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          «Интересует 2-комнатная в Севастополе, бюджет до 12 млн»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="typing"><span></span><span></span><span></span></div>
+            <span style="font-size:11px;color:#9CA3AF;">AI отвечает...</span>
+          </div>
+          <span style="font-size:11px;color:#9CA3AF;">2 мин назад</span>
+        </div>
+      </div>
+
+      <div class="lead-card ai" onclick="openModal('ai2')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Марина К.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Сайт domhit.pro</div>
+          </div>
+          <span class="badge badge-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#C97010"/></svg>AI</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F9FAFB;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          «Хочу участок ИЖС под Симферополем, 6-8 соток»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;color:#6B7280;font-weight:500;">3 сообщения</span>
+          <span style="font-size:11px;color:#9CA3AF;">10 мин назад</span>
+        </div>
+      </div>
+
+      <div class="lead-card ai" onclick="openModal('ai3')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Игорь Т.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Телеграм-бот</div>
+          </div>
+          <span class="badge badge-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#C97010"/></svg>AI</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F9FAFB;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          «Дом в Балаклаве, море в шаговой, бюджет 20 млн»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;color:#6B7280;font-weight:500;">7 сообщений</span>
+          <span style="font-size:11px;color:#9CA3AF;">23 мин назад</span>
+        </div>
+      </div>
+
+      <div class="lead-card ai" onclick="openModal('ai4')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Олег В.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">VK реклама</div>
+          </div>
+          <span class="badge badge-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#C97010"/></svg>AI</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F9FAFB;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          «Ипотека без первоначального взноса, возможно?»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;color:#6B7280;font-weight:500;">2 сообщения</span>
+          <span style="font-size:11px;color:#9CA3AF;">35 мин назад</span>
+        </div>
+      </div>
+
+      <div class="lead-card ai" onclick="openModal('ai5')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Анна С.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Instagram</div>
+          </div>
+          <span class="badge badge-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#C97010"/></svg>AI</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F9FAFB;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          «Студия или однушка в новостройке Симферополя»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;color:#6B7280;font-weight:500;">5 сообщений</span>
+          <span style="font-size:11px;color:#9CA3AF;">1 час назад</span>
+        </div>
+      </div>
+
+      <div class="lead-card ai" onclick="openModal('ai6')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Дмитрий Н.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Яндекс.Реклама</div>
+          </div>
+          <span class="badge badge-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#C97010"/></svg>AI</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F9FAFB;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          «Коммерческая недвижимость, торговое помещение»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;color:#6B7280;font-weight:500;">1 сообщение</span>
+          <span style="font-size:11px;color:#9CA3AF;">1.5 ч назад</span>
+        </div>
+      </div>
+
+      <div class="lead-card ai" onclick="openModal('ai7')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Светлана Р.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Авито</div>
+          </div>
+          <span class="badge badge-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#C97010"/></svg>AI</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F9FAFB;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          «Земельный участок в Евпатории, желательно с морем»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="typing"><span></span><span></span><span></span></div>
+          <span style="font-size:11px;color:#9CA3AF;">2 ч назад</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- COL 2: НУЖЕН ЧЕЛОВЕК (most important) -->
+  <div class="kanban-col col-urgent" id="col-human" style="position:relative;">
+    <div class="col-header" style="border-bottom:2px solid #FEE2E2;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot dot-red"></span>
+        <span style="font-size:13px;font-weight:700;color:#DC2626;">Нужен человек</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 9v3m0 3h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:10px;color:#EF4444;font-weight:600;background:#FEF2F2;padding:2px 7px;border-radius:99px;">СРОЧНО</span>
+        <span class="count-chip" style="background:#FEF2F2;color:#DC2626;" id="count-human">3</span>
+      </div>
+    </div>
+    <div class="col-scroll" id="list-human" style="padding:0 10px 10px;">
+
+      <div class="lead-card urgent" onclick="openModal('human1')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Виктор П.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">WhatsApp · Юридический вопрос</div>
+          </div>
+          <span class="badge badge-urgent">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="#DC2626"/></svg>
+            Срочно
+          </span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#FEF2F2;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;border-left:3px solid #FCA5A5;">
+          «Что за мошенники! Почему разные цены на сайте и у агента?! Требую объяснений!»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;font-weight:600;color:#DC2626;">Клиент раздражён</span>
+          <span style="font-size:11px;color:#9CA3AF;">5 мин назад</span>
+        </div>
+        <button onclick="event.stopPropagation();takeCard('human1','Виктор П.')" style="margin-top:10px;width:100%;padding:7px;background:#1A1A1A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;transition:background 0.15s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#1A1A1A'">
+          Взять в работу
+        </button>
+      </div>
+
+      <div class="lead-card urgent" onclick="openModal('human2')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Елена Ф.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Сайт · Нотариус / ДКП</div>
+          </div>
+          <span class="badge badge-urgent"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="#DC2626"/></svg>Срочно</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#FEF2F2;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;border-left:3px solid #FCA5A5;">
+          «Нужно разъяснить нюансы ДКП, обременение материнским капиталом»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;font-weight:600;color:#9A3412;">Сложный вопрос</span>
+          <span style="font-size:11px;color:#9CA3AF;">18 мин назад</span>
+        </div>
+        <button onclick="event.stopPropagation();takeCard('human2','Елена Ф.')" style="margin-top:10px;width:100%;padding:7px;background:#1A1A1A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;transition:background 0.15s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#1A1A1A'">
+          Взять в работу
+        </button>
+      </div>
+
+      <div class="lead-card urgent" onclick="openModal('human3')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Роман А.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Telegram · Торг / скидка</div>
+          </div>
+          <span class="badge badge-urgent"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="#DC2626"/></svg>Срочно</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#FEF2F2;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;border-left:3px solid #FCA5A5;">
+          «Готов купить сейчас за 14.5 млн, но хочет официальную скидку и договор сегодня»
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;font-weight:600;color:#15803D;">Горячий клиент!</span>
+          <span style="font-size:11px;color:#9CA3AF;">32 мин назад</span>
+        </div>
+        <button onclick="event.stopPropagation();takeCard('human3','Роман А.')" style="margin-top:10px;width:100%;padding:7px;background:#E8891A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;transition:background 0.15s;" onmouseover="this.style.background='#C97010'" onmouseout="this.style.background='#E8891A'">
+          Взять в работу
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- COL 3: ЛИД ГОТОВ -->
+  <div class="kanban-col col-ready" id="col-ready">
+    <div class="col-header" style="border-bottom:2px solid #DCFCE7;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot dot-green"></span>
+        <span style="font-size:13px;font-weight:700;color:#15803D;">Лид готов (Запись)</span>
+      </div>
+      <span class="count-chip" style="background:#F0FDF4;color:#16A34A;" id="count-ready">4</span>
+    </div>
+    <div class="col-scroll" id="list-ready" style="padding:0 10px 10px;">
+
+      <div class="lead-card ready" onclick="openModal('ready1')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Наталья В.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">+7 978 *** 44 21</div>
+          </div>
+          <span class="badge badge-ready">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Записан
+          </span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F0FDF4;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          Просмотр: <strong>завтра в 14:00</strong><br>
+          Объект Z11578 — Дом 140 м², 5 сот., ИЖС
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="#16A34A" stroke-width="1.8"/></svg>
+            <span style="font-size:11px;color:#16A34A;font-weight:600;">Телефон получен</span>
+          </div>
+          <span style="font-size:11px;color:#9CA3AF;">сегодня</span>
+        </div>
+        <button onclick="event.stopPropagation();" style="margin-top:10px;width:100%;padding:7px;background:#16A34A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;">
+          Забрать в работу
+        </button>
+      </div>
+
+      <div class="lead-card ready" onclick="openModal('ready2')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Пётр И.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">+7 978 *** 88 03</div>
+          </div>
+          <span class="badge badge-ready"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Записан</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F0FDF4;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          Просмотр: <strong>пятница в 11:00</strong><br>
+          Объект Z6132 — Дом 186 м², 9 сот.
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="#16A34A" stroke-width="1.8"/></svg>
+            <span style="font-size:11px;color:#16A34A;font-weight:600;">Телефон получен</span>
+          </div>
+          <span style="font-size:11px;color:#9CA3AF;">вчера</span>
+        </div>
+        <button onclick="event.stopPropagation();" style="margin-top:10px;width:100%;padding:7px;background:#16A34A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;">
+          Забрать в работу
+        </button>
+      </div>
+
+      <div class="lead-card ready" onclick="openModal('ready3')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Татьяна О.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">+7 978 *** 55 77</div>
+          </div>
+          <span class="badge" style="background:#EFF6FF;color:#1D4ED8;font-size:11px;padding:2px 8px;border-radius:99px;">📞 Перезвонить</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#EFF6FF;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          Хочет обсудить варианты по телефону.<br>Участки в Евпатории, бюджет 8-10 млн.
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;font-weight:600;color:#1D4ED8;">Ждёт звонка</span>
+          <span style="font-size:11px;color:#9CA3AF;">2 ч назад</span>
+        </div>
+        <button onclick="event.stopPropagation();" style="margin-top:10px;width:100%;padding:7px;background:#16A34A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;">
+          Забрать в работу
+        </button>
+      </div>
+
+      <div class="lead-card ready" onclick="openModal('ready4')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1A1A1A;">Андрей Ж.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">+7 978 *** 12 90</div>
+          </div>
+          <span class="badge badge-ready"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Записан</span>
+        </div>
+        <div style="font-size:12px;color:#374151;background:#F0FDF4;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;">
+          Просмотр: <strong>суббота 10:00</strong><br>
+          Объект Z11559 — Участок 8 сот.
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;font-weight:600;color:#16A34A;">Телефон получен</span>
+          <span style="font-size:11px;color:#9CA3AF;">3 ч назад</span>
+        </div>
+        <button onclick="event.stopPropagation();" style="margin-top:10px;width:100%;padding:7px;background:#16A34A;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Manrope',sans-serif;">
+          Забрать в работу
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- COL 4: АРХИВ -->
+  <div class="kanban-col" id="col-archive">
+    <div class="col-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="dot dot-gray"></span>
+        <span style="font-size:13px;font-weight:700;color:#6B7280;">Завершено / Архив</span>
+      </div>
+      <span class="count-chip" style="background:#F3F4F6;color:#6B7280;" id="count-archive">18</span>
+    </div>
+    <div class="col-scroll" id="list-archive" style="padding:0 10px 10px;">
+
+      <div class="lead-card" style="opacity:0.75;" onclick="openModal('arch1')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#374151;text-decoration:line-through;">Максим Т.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:1px;">Сделка закрыта</div>
+          </div>
+          <span class="badge badge-archive">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="#6B7280" stroke-width="2" stroke-linecap="round"/></svg>
+            Закрыт
+          </span>
+        </div>
+        <div style="font-size:12px;color:#6B7280;line-height:1.4;">Дом 186 м² · 18 000 000 ₽ · Z6132</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">08.04.2025</div>
+      </div>
+
+      <div class="lead-card" style="opacity:0.75;" onclick="openModal('arch2')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#374151;text-decoration:line-through;">Ирина С.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:1px;">Сделка закрыта</div>
+          </div>
+          <span class="badge badge-archive"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="#6B7280" stroke-width="2" stroke-linecap="round"/></svg>Закрыт</span>
+        </div>
+        <div style="font-size:12px;color:#6B7280;line-height:1.4;">3-комн. квартира · 10 500 000 ₽ · Z11746</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">07.04.2025</div>
+      </div>
+
+      <div class="lead-card" style="opacity:0.6;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#374151;">Спам #48</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:1px;">Автоблок AI</div>
+          </div>
+          <span class="badge" style="background:#F3F4F6;color:#6B7280;font-size:11px;padding:2px 8px;border-radius:99px;">Спам</span>
+        </div>
+        <div style="font-size:12px;color:#9CA3AF;line-height:1.4;">Бот / нецелевое сообщение</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">09.04.2025</div>
+      </div>
+
+      <div class="lead-card" style="opacity:0.75;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#374151;text-decoration:line-through;">Сергей К.</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:1px;">Сделка закрыта</div>
+          </div>
+          <span class="badge badge-archive"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="#6B7280" stroke-width="2" stroke-linecap="round"/></svg>Закрыт</span>
+        </div>
+        <div style="font-size:12px;color:#6B7280;line-height:1.4;">Участок 8 сот. · 7 650 000 ₽ · Z11560</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">05.04.2025</div>
+      </div>
+
+      <div style="text-align:center;padding:12px 0;">
+        <button style="font-size:12px;color:#9CA3AF;background:none;border:none;cursor:pointer;font-family:'Manrope',sans-serif;text-decoration:underline;">
+          Показать все 18 записей
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-box" id="modal-box">
+
+    <!-- Modal header -->
+    <div style="padding:18px 20px 14px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:10;border-radius:16px 16px 0 0;">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:#1A1A1A;" id="modal-name">Алексей М.</div>
+        <div style="font-size:12px;color:#9CA3AF;margin-top:2px;" id="modal-source">Авито → WhatsApp</div>
+      </div>
+      <button onclick="closeModal()" style="width:32px;height:32px;border-radius:8px;border:1px solid #E5E7EB;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:#6B7280;">✕</button>
+    </div>
+
+    <!-- Lead info -->
+    <div style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;gap:20px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:11px;color:#9CA3AF;font-weight:500;margin-bottom:3px;">Интерес</div>
+        <div style="font-size:13px;color:#1A1A1A;font-weight:600;" id="modal-interest">2-комн. кв., до 12 млн</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#9CA3AF;font-weight:500;margin-bottom:3px;">Статус</div>
+        <div id="modal-status-badge"></div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#9CA3AF;font-weight:500;margin-bottom:3px;">Телефон</div>
+        <div style="font-size:13px;color:#1A1A1A;font-weight:600;" id="modal-phone">—</div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div style="padding:16px 20px;">
+      <div style="font-size:12px;font-weight:600;color:#6B7280;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em;">Переписка</div>
+      <div id="modal-chat" style="display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto;padding-bottom:8px;"></div>
+    </div>
+
+    <!-- Reply area -->
+    <div style="padding:14px 20px 20px;border-top:1px solid #F3F4F6;">
+      <div style="font-size:11px;color:#9CA3AF;margin-bottom:8px;font-weight:500;">Ответить вручную</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="msg-input" placeholder="Написать сообщение клиенту..." id="reply-input" />
+        <button onclick="sendReply()" style="padding:10px 16px;background:var(--orange);color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Manrope',sans-serif;flex-shrink:0;transition:background 0.15s;" onmouseover="this.style.background='#C97010'" onmouseout="this.style.background='var(--orange)'">
+          Отправить
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <button onclick="quickReply('Здравствуйте! Рассмотрим подходящие варианты')" style="font-size:11px;padding:5px 10px;border:1px solid #E5E7EB;border-radius:8px;background:white;cursor:pointer;color:#374151;font-family:'Manrope',sans-serif;">👋 Приветствие</button>
+        <button onclick="quickReply('Записал вас на просмотр. Удобно завтра в 14:00?')" style="font-size:11px;padding:5px 10px;border:1px solid #E5E7EB;border-radius:8px;background:white;cursor:pointer;color:#374151;font-family:'Manrope',sans-serif;">📅 Запись</button>
+        <button onclick="quickReply('Оставьте ваш телефон, мы свяжемся!')" style="font-size:11px;padding:5px 10px;border:1px solid #E5E7EB;border-radius:8px;background:white;cursor:pointer;color:#374151;font-family:'Manrope',sans-serif;">📞 Запрос тел.</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <img class="tg-icon" src="media/telegram.png" alt="Telegram">
+  <div>
+    <div style="font-size:13px;font-weight:700;" id="toast-title">Новый лид в «Нужен человек»</div>
+    <div style="font-size:12px;color:#9CA3AF;margin-top:2px;" id="toast-body">Виктор П. — требует внимания агента</div>
+  </div>
+</div>
+
+<footer class="footer">
+  <span>© 2026 ИИ отдел СЕВСТАР · ДомХит · Все права защищены. ·</span>
+  <a href="https://t.me/" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;">
+    <img src="media/telegram.png" width="14" height="14" alt="" aria-hidden="true" style="display:block;">
+    Telegram
+  </a>
+</footer>
+
+<div class="domhit-chat-launcher" id="domhitChatLauncher" data-open="false">
+  <button
+    class="domhit-chat-toggle"
+    id="domhitChatToggle"
+    type="button"
+    aria-label="Открыть чат"
+    aria-haspopup="dialog"
+    aria-controls="domhitChatPanel"
+    aria-expanded="false"
+  >
+    <span class="domhit-chat-icon domhit-chat-icon--robot" aria-hidden="true">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="9" width="16" height="11" rx="3" fill="white"/>
+        <rect x="9" y="6" width="6" height="4" rx="2" fill="white"/>
+        <circle cx="9" cy="14" r="1.5" fill="#C97010"/>
+        <circle cx="15" cy="14" r="1.5" fill="#C97010"/>
+        <rect x="8" y="17" width="8" height="1.5" rx="0.75" fill="#C97010"/>
+        <line x1="7" y1="6" x2="5" y2="4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="17" y1="6" x2="19" y2="4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span class="domhit-chat-icon domhit-chat-icon--close" aria-hidden="true">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 6L18 18" stroke="white" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M18 6L6 18" stroke="white" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+    </span>
+  </button>
+
+  <div class="domhit-chat-panel" id="domhitChatPanel" role="dialog" aria-label="Чат с AI Менеджером ДомХит" aria-hidden="true">
+    <div class="domhit-chat-widget">
+      <div class="chat-card">
+        <div class="clear-overlay" id="domhitWidgetClearOverlay" aria-hidden="true">
+          <div class="clear-toast">
+            <div class="clear-check">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 13L9 17L19 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="clear-label">История чата успешно сброшена!</div>
+          </div>
+        </div>
+
+        <div class="chat-header">
+          <div class="agent-info">
+            <div class="agent-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="9" width="16" height="11" rx="3" fill="#E8891A"/>
+                <rect x="9" y="6" width="6" height="4" rx="2" fill="#E8891A"/>
+                <circle cx="9" cy="14" r="1.5" fill="white"/>
+                <circle cx="15" cy="14" r="1.5" fill="white"/>
+                <rect x="8" y="17" width="8" height="1.5" rx="0.75" fill="white"/>
+                <line x1="7" y1="6" x2="5" y2="4" stroke="#C97010" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="17" y1="6" x2="19" y2="4" stroke="#C97010" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div class="agent-name">AI Менеджер ДомХит</div>
+              <div class="agent-status">
+                <span class="status-dot" aria-hidden="true"></span>
+                Онлайн · отвечает мгновенно
+              </div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="icon-btn" type="button" title="Информация" aria-label="Информация">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8" stroke-width="2.5"/>
+                <line x1="12" y1="12" x2="12" y2="16"/>
+              </svg>
+            </button>
+            <button class="icon-btn" type="button" id="domhitWidgetClearBtn" title="Очистить чат" aria-label="Очистить чат">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="chat-body" id="domhitWidgetChatBody" aria-live="polite" aria-relevant="additions text">
+          <div class="date-divider"><span>Сегодня</span></div>
+          <div class="msg-row bot" id="domhitWidgetWelcomeMsg">
+            <div class="msg-sender">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="9" width="16" height="11" rx="3" fill="#E8891A"/><rect x="9" y="6" width="6" height="4" rx="2" fill="#E8891A"/></svg>
+              AI Менеджер
+            </div>
+            <div class="bubble">
+              👋 Здравствуйте! Я — AI Менеджер агентства недвижимости <strong>ДомХит</strong>.<br><br>
+              Помогу подобрать дом, квартиру или участок в Крыму — быстро и без лишних вопросов.<br><br>
+              Расскажите, что вас интересует? 🏠
+            </div>
+            <div class="msg-time" id="domhitWidgetWelcomeTime"></div>
+          </div>
+        </div>
+
+        <div class="error-banner" id="domhitWidgetErrorBanner" role="status" aria-live="polite"></div>
+
+        <div class="chat-footer">
+          <div class="input-wrap">
+            <textarea
+              class="chat-input"
+              id="domhitWidgetChatInput"
+              placeholder="Напишите сообщение..."
+              rows="1"
+              aria-label="Сообщение"
+            ></textarea>
+            <button class="emoji-btn" type="button" title="Эмодзи" aria-label="Эмодзи" tabindex="-1">😊</button>
+          </div>
+          <button class="send-btn" id="domhitWidgetSendBtn" type="button" title="Отправить" aria-label="Отправить">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M22 2L11 13" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const leadsData = {
+  ai1: { name:'Алексей М.', source:'Авито → WhatsApp', interest:'2-комн. кв., до 12 млн', status:'ai', phone:'—', chat:[
+    {from:'user',text:'Здравствуйте, смотрю объявление Z11746, 3 комнаты за 10.5 млн. Это реальная цена?'},
+    {from:'ai',text:'Добрый день, Алексей! Да, цена актуальна. Это 3-комнатная квартира 80 м² в Севастополе. Скажите, вам важна близость к морю или конкретный район?'},
+    {from:'user',text:'Хочу 2-комнатную, максимум 12 млн'},
+    {from:'ai',text:'Отлично! У нас есть несколько подходящих вариантов. Могу показать 2-3 объекта завтра. Удобно ли вам назначить просмотр?'},
+  ]},
+  ai2: { name:'Марина К.', source:'Сайт domhit.pro', interest:'Участок ИЖС, Симферополь', status:'ai', phone:'—', chat:[
+    {from:'user',text:'Привет, ищу участок ИЖС под Симферополем'},
+    {from:'ai',text:'Здравствуйте, Марина! Рады помочь. Какой размер участка вас интересует и каков ваш бюджет?'},
+    {from:'user',text:'6-8 соток, бюджет до 5 млн'},
+    {from:'ai',text:'Хорошо! В этом диапазоне есть 3 варианта в 15-25 км от Симферополя. Показать фото и описания?'},
+  ]},
+  ai3: { name:'Игорь Т.', source:'Телеграм-бот', interest:'Дом в Балаклаве, ~20 млн', status:'ai', phone:'—', chat:[
+    {from:'user',text:'Интересует дом в Балаклаве, хочу море рядом'},
+    {from:'ai',text:'Балаклава — отличный выбор! Что для вас важнее: пешая доступность или вид на море из окон?'},
+    {from:'user',text:'Пешая доступность, максимум 5 минут'},
+    {from:'ai',text:'Понял вас! Сейчас у нас есть дом 140 м² в 4 минутах от набережной — цена 19.5 млн. Хотите подробности?'},
+  ]},
+  human1: { name:'Виктор П.', source:'WhatsApp · Юридический вопрос', interest:'Хочет пояснений по ценам', status:'urgent', phone:'+7 978 *** 31 55', chat:[
+    {from:'user',text:'Почему на сайте одна цена, а агент называет другую??'},
+    {from:'ai',text:'Добрый день! Понимаю ваше беспокойство. Цены на сайте обновляются в режиме реального времени, а агент мог цитировать прайс до последнего обновления. Уточните, пожалуйста, какой объект вас интересует?'},
+    {from:'user',text:'ЭТО НЕПРОФЕССИОНАЛЬНО! Почему так происходит?! Вы мошенники что ли!?'},
+    {from:'ai',text:'⚠️ Передаю диалог специалисту — запрос требует личного участия агента.'},
+  ]},
+  human2: { name:'Елена Ф.', source:'Сайт · Нотариус / ДКП', interest:'Квартира с маткапиталом', status:'urgent', phone:'+7 978 *** 77 42', chat:[
+    {from:'user',text:'Хочу купить квартиру с использованием материнского капитала, но на объекте обременение'},
+    {from:'ai',text:'Здравствуйте, Елена! Это распространённая ситуация. Скажите, продавец уже погасил обременение или ещё нет?'},
+    {from:'user',text:'Нет, не погасил. И нотариус говорит нужны доли детям. Как всё оформить?'},
+    {from:'ai',text:'Это сложный юридический вопрос с несколькими нюансами — передаю вас специалисту агентства.'},
+  ]},
+  human3: { name:'Роман А.', source:'Telegram · Торг / скидка', interest:'Дом, торг 14.5 млн', status:'urgent', phone:'+7 978 *** 09 11', chat:[
+    {from:'user',text:'Готов купить дом Z11578 за 14.5 млн наличными, хочу договор сегодня'},
+    {from:'ai',text:'Роман, отличное решение! Уточню по скидке у руководства. Продавец обозначил нижний порог — нужно согласование.'},
+    {from:'user',text:'У меня деньги готовы, не хочу ждать. Давайте сегодня!'},
+    {from:'ai',text:'Понял вас, передаю запрос агенту — он перезвонит в течение 10 минут для финального согласования условий.'},
+  ]},
+  ready1: { name:'Наталья В.', source:'WhatsApp', interest:'Дом 140 м², ИЖС · Z11578', status:'ready', phone:'+7 978 *** 44 21', chat:[
+    {from:'user',text:'Мне понравился дом на фото, хочу посмотреть живьём'},
+    {from:'ai',text:'Отлично! Давайте запишем вас. Удобно завтра в 14:00?'},
+    {from:'user',text:'Да, завтра в 14 подходит. Мой номер +7978***4421'},
+    {from:'ai',text:'Записала! Завтра в 14:00 на объекте Z11578. Агент встретит вас по адресу — пришлю с утра.'},
+  ]},
+  ready2: { name:'Пётр И.', source:'Сайт domhit.pro', interest:'Дом 186 м², 9 сот. · Z6132', status:'ready', phone:'+7 978 *** 88 03', chat:[
+    {from:'user',text:'Хочу посмотреть дом Z6132'},
+    {from:'ai',text:'Когда вам удобно? Объект свободен в пятницу с 10:00 до 16:00'},
+    {from:'user',text:'Пятница в 11 подойдёт, телефон +7978***8803'},
+    {from:'ai',text:'Записан! Пятница в 11:00. До встречи!'},
+  ]},
+  ready3: { name:'Татьяна О.', source:'Telegram', interest:'Участки в Евпатории, 8-10 млн', status:'ready', phone:'+7 978 *** 55 77', chat:[
+    {from:'user',text:'Хочу участок в Евпатории с видом на море'},
+    {from:'ai',text:'Есть несколько вариантов! Могу рассказать подробнее или лучше созвониться?'},
+    {from:'user',text:'Лучше позвоните, номер +7978***5577'},
+    {from:'ai',text:'Отлично! Передала номер агенту — свяжутся с вами сегодня.'},
+  ]},
+  ready4: { name:'Андрей Ж.', source:'Авито', interest:'Участок 8 сот. · Z11559', status:'ready', phone:'+7 978 *** 12 90', chat:[
+    {from:'user',text:'Смотрю участок Z11559, интересно'},
+    {from:'ai',text:'Хороший выбор! Участок 8 соток, есть вид на море. Запишем на просмотр?'},
+    {from:'user',text:'Да, в субботу в 10 часов. +7978***1290'},
+    {from:'ai',text:'Записан на субботу в 10:00! Ждём вас.'},
+  ]},
+  arch1: { name:'Максим Т.', source:'Сделка закрыта', interest:'Дом 186 м² · Z6132', status:'done', phone:'+7 978 *** 22 18', chat:[
+    {from:'user',text:'Принял решение — беру!'},
+    {from:'ai',text:'Поздравляем! Передаём агенту для оформления документов.'},
+  ]},
+  arch2: { name:'Ирина С.', source:'Сделка закрыта', interest:'3-комн. кв. · Z11746', status:'done', phone:'+7 978 *** 66 33', chat:[
+    {from:'user',text:'Всё обсудили с агентом, подписываем ДКП завтра'},
+    {from:'ai',text:'Отлично! Поздравляем с покупкой!'},
+  ]},
+};
+
+let currentModal = null;
+
+function openModal(id) {
+  const d = leadsData[id];
+  if (!d) return;
+  currentModal = id;
+  document.getElementById('modal-name').textContent = d.name;
+  document.getElementById('modal-source').textContent = d.source;
+  document.getElementById('modal-interest').textContent = d.interest;
+  document.getElementById('modal-phone').textContent = d.phone;
+
+  const statusBadge = document.getElementById('modal-status-badge');
+  if (d.status === 'ai') statusBadge.innerHTML = '<span class="badge badge-ai">AI в работе</span>';
+  else if (d.status === 'urgent') statusBadge.innerHTML = '<span class="badge badge-urgent">Нужен агент</span>';
+  else if (d.status === 'ready') statusBadge.innerHTML = '<span class="badge badge-ready">Записан</span>';
+  else statusBadge.innerHTML = '<span class="badge badge-archive">Завершено</span>';
+
+  const chat = document.getElementById('modal-chat');
+  chat.innerHTML = '';
+  d.chat.forEach(msg => {
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    if (msg.from === 'user') {
+      wrap.style.alignItems = 'flex-start';
+      wrap.innerHTML = `
+        <div style="font-size:10px;color:#9CA3AF;margin-bottom:3px;">Клиент</div>
+        <div class="chat-bubble chat-user">${msg.text}</div>`;
+    } else {
+      wrap.style.alignItems = 'flex-end';
+      wrap.innerHTML = `
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+          <div style="width:16px;height:16px;border-radius:4px;background:#FFF3E0;display:flex;align-items:center;justify-content:center;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7H4a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" fill="#E8891A"/></svg>
+          </div>
+          <span style="font-size:10px;color:#E8891A;font-weight:600;">AI Агент</span>
+        </div>
+        <div class="chat-bubble chat-ai">${msg.text}</div>`;
+    }
+    chat.appendChild(wrap);
+  });
+  chat.scrollTop = chat.scrollHeight;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('open');
+    currentModal = null;
+  }
+}
+
+function sendReply() {
+  const input = document.getElementById('reply-input');
+  const text = input.value.trim();
+  if (!text || !currentModal) return;
+  const d = leadsData[currentModal];
+  d.chat.push({ from: 'agent', text });
+  const chat = document.getElementById('modal-chat');
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.flexDirection = 'column';
+  wrap.style.alignItems = 'flex-end';
+  wrap.innerHTML = `
+    <div style="font-size:10px;color:#9CA3AF;margin-bottom:3px;">Агент</div>
+    <div class="chat-bubble" style="background:#2A2A2A;color:white;border-radius:12px 4px 12px 12px;padding:9px 13px;font-size:13px;max-width:80%;">${text}</div>`;
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+  input.value = '';
+}
+
+function quickReply(text) {
+  document.getElementById('reply-input').value = text;
+  sendReply();
+}
+
+function takeCard(id, name) {
+  showToast(`Вы взяли в работу: ${name}`, 'Диалог открыт в вашем мессенджере');
+}
+
+let toastTimer;
+function showToast(title, body) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-body').textContent = body;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4500);
+}
+
+function logout() {
+  showToast('Выйти', 'Функция будет подключена позже');
+}
+
+function simulateNewLead() {
+  const names = ['Сергей Д.','Ольга Л.','Никита Б.','Юлия Г.','Павел С.'];
+  const sources = ['Авито','WhatsApp','VK','Instagram','Сайт'];
+  const interests = [
+    'Дом под Симферополем до 18 млн',
+    'Квартира 1-2 комн., Севастополь',
+    'Участок море, до 10 млн',
+    'Таунхаус в Ялте',
+    'ИЖС 10 сот., Евпатория'
+  ];
+
+  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const isUrgent = Math.random() > 0.6;
+  const name = rand(names);
+  const id = 'sim_' + Date.now();
+  leadsData[id] = {
+    name, source: rand(sources),
+    interest: rand(interests),
+    status: isUrgent ? 'urgent' : 'ai',
+    phone: '—',
+    chat: [
+      { from: 'user', text: rand(interests) },
+      { from: 'ai', text: 'Здравствуйте! Рад помочь. Расскажите подробнее о ваших предпочтениях.' }
+    ]
+  };
+
+  const card = document.createElement('div');
+  card.className = `lead-card ${isUrgent ? 'urgent' : 'ai'} card-new`;
+  card.onclick = () => openModal(id);
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#1A1A1A;">${name}</div>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:2px;">${leadsData[id].source}</div>
+      </div>
+      <span class="badge ${isUrgent ? 'badge-urgent' : 'badge-ai'}" style="font-size:11px;padding:2px 8px;border-radius:99px;">
+        ${isUrgent ? '🔴 Срочно' : '🤖 AI'}
+      </span>
+    </div>
+    <div style="font-size:12px;color:#374151;background:${isUrgent ? '#FEF2F2' : '#F9FAFB'};border-radius:8px;padding:8px 10px;margin-bottom:6px;line-height:1.5;">
+      «${leadsData[id].interest}»
+    </div>
+    <div style="font-size:11px;color:#9CA3AF;text-align:right;">только что</div>
+  `;
+
+  const col = isUrgent ? 'list-human' : 'list-ai';
+  const list = document.getElementById(col);
+  list.insertBefore(card, list.firstChild);
+
+  // Update counters
+  if (isUrgent) {
+    const n = parseInt(document.getElementById('count-human').textContent) + 1;
+    document.getElementById('count-human').textContent = n;
+    document.getElementById('stat-human').textContent = n;
+    showToast(`⚠️ Нужен человек: ${name}`, leadsData[id].interest);
+  } else {
+    const n = parseInt(document.getElementById('count-ai').textContent) + 1;
+    document.getElementById('count-ai').textContent = n;
+    document.getElementById('stat-ai').textContent = n;
+    showToast(`🤖 Новый лид (AI): ${name}`, leadsData[id].interest);
+  }
+}
+
+// Simulate an initial TG notification
+setTimeout(() => {
+  showToast('🔴 Нужен человек: Роман А.', 'Горячий клиент — готов к сделке сегодня');
+}, 3500);
+
+// Enter key for reply
+document.getElementById('reply-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendReply();
+});
+
+const currentUserDisplayName = 'Иван Иванов';
+document.getElementById('user-display-name').textContent = currentUserDisplayName;
+
+(function initDomhitChatWidget() {
+  const launcher = document.getElementById('domhitChatLauncher');
+  const toggleBtn = document.getElementById('domhitChatToggle');
+  const panel = document.getElementById('domhitChatPanel');
+  const chatBody = document.getElementById('domhitWidgetChatBody');
+  const chatInput = document.getElementById('domhitWidgetChatInput');
+  const sendBtn = document.getElementById('domhitWidgetSendBtn');
+  const errorBanner = document.getElementById('domhitWidgetErrorBanner');
+  const clearBtn = document.getElementById('domhitWidgetClearBtn');
+
+  if (!launcher || !toggleBtn || !panel || !chatBody || !chatInput || !sendBtn || !errorBanner || !clearBtn) return;
+
+  const N8N_WEBHOOK_URL = 'https://n8n-dep.sevstar.net/webhook/domhit-avito-bot';
+  const N8N_DELETE_URL = 'https://n8n-dep.sevstar.net/webhook/domhit-avito-bot-clear-chat-history';
+
+  let SESSION_ID = sessionStorage.getItem('domhit_session');
+  if (!SESSION_ID) {
+    SESSION_ID = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    sessionStorage.setItem('domhit_session', SESSION_ID);
+  }
+
+  function setOpen(nextOpen, { focusInput = true } = {}) {
+    const isOpen = nextOpen === true;
+    launcher.dataset.open = isOpen ? 'true' : 'false';
+    toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    toggleBtn.setAttribute('aria-label', isOpen ? 'Закрыть чат' : 'Открыть чат');
+    panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    if (isOpen && focusInput) {
+      requestAnimationFrame(() => chatInput.focus());
+    }
+    if (!isOpen) {
+      requestAnimationFrame(() => toggleBtn.focus());
+    }
+  }
+
+  function isOpen() {
+    return launcher.dataset.open === 'true';
+  }
+
+  function formatTime(d) {
+    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function scrollBottom(smooth = true) {
+    const top = chatBody.scrollHeight;
+    if (typeof chatBody.scrollTo === 'function') {
+      chatBody.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    } else {
+      chatBody.scrollTop = top;
+    }
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }
+
+  function showError(msg) {
+    errorBanner.textContent = msg;
+    errorBanner.classList.add('show');
+    window.setTimeout(() => errorBanner.classList.remove('show'), 5000);
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('domhitWidgetTypingIndicator');
+    if (el) el.remove();
+  }
+
+  function showTyping() {
+    removeTyping();
+    const row = document.createElement('div');
+    row.className = 'typing-row';
+    row.id = 'domhitWidgetTypingIndicator';
+    row.innerHTML = `
+      <div class="typing-bubble">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    `;
+    chatBody.appendChild(row);
+    scrollBottom();
+  }
+
+  function appendMessage(text, role) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+
+    const senderLabel = role === 'bot' ? 'AI Менеджер' : 'Клиент';
+    row.innerHTML = `
+      <div class="msg-sender">
+        ${role === 'bot' ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="9" width="16" height="11" rx="3" fill="#E8891A"/><rect x="9" y="6" width="6" height="4" rx="2" fill="#E8891A"/></svg>` : ''}
+        ${senderLabel}
+      </div>
+      <div class="bubble">${escapeHtml(text)}</div>
+      <div class="msg-time">${formatTime(new Date())}</div>
+    `;
+    chatBody.appendChild(row);
+    scrollBottom();
+    return row;
+  }
+
+  function resetInput() {
+    sendBtn.disabled = false;
+    chatInput.disabled = false;
+    chatInput.focus();
+  }
+
+  function delay(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    appendMessage(text, 'user');
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    sendBtn.disabled = true;
+    chatInput.disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          session_id: SESSION_ID,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const botText = data.response || data.message || data.text || (Array.isArray(data) && data[0]?.response) || 'Получен ответ без текста.';
+      removeTyping();
+      appendMessage(botText, 'bot');
+    } catch (err) {
+      removeTyping();
+      showError('Не удалось получить ответ. Проверьте соединение или URL вебхука.');
+      console.error('[ДомХит AI Widget]', err);
+    }
+
+    resetInput();
+  }
+
+  async function clearChat() {
+    try {
+      await fetch(N8N_DELETE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: SESSION_ID })
+      });
+    } catch (e) {
+      console.warn('[ДомХит Widget] Не удалось удалить историю:', e);
+    }
+
+    const overlay = document.getElementById('domhitWidgetClearOverlay');
+    overlay.classList.add('show');
+
+    await delay(1600);
+    overlay.classList.remove('show');
+    await delay(280);
+
+    const messages = chatBody.querySelectorAll('.msg-row:not(#domhitWidgetWelcomeMsg), .typing-row');
+    messages.forEach(m => m.remove());
+    SESSION_ID = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    sessionStorage.setItem('domhit_session', SESSION_ID);
+    scrollBottom(false);
+  }
+
+  function getFocusableElements() {
+    return Array.from(panel.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')).filter(
+      el => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true'
+    );
+  }
+
+  function handleFocusTrap(e) {
+    if (!isOpen()) return;
+    if (e.key !== 'Tab') return;
+    const focusables = getFocusableElements();
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+      return;
+    }
+    if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  toggleBtn.addEventListener('click', () => setOpen(!isOpen()));
+  clearBtn.addEventListener('click', clearChat);
+  sendBtn.addEventListener('click', sendMessage);
+
+  chatInput.addEventListener('input', () => autoResize(chatInput));
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setOpen(false, { focusInput: false });
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen()) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setOpen(false, { focusInput: false });
+      return;
+    }
+    handleFocusTrap(e);
+  });
+
+  document.addEventListener('pointerdown', (e) => {
+    if (!isOpen()) return;
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (launcher.contains(target)) return;
+    setOpen(false, { focusInput: false });
+  });
+
+  const now = new Date();
+  const welcomeTime = document.getElementById('domhitWidgetWelcomeTime');
+  if (welcomeTime) welcomeTime.textContent = formatTime(now);
+
+  setOpen(false, { focusInput: false });
+})();
+</script>
+
+</body>
+</html>
